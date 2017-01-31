@@ -143,6 +143,12 @@ public class AddressBook {
      * Using enums to generate key values used for hashmap storing a person's details
      */
     private enum PersonProperty  {NAME, EMAIL, PHONE};
+    
+    /**
+     * There are two parts of raw input, a one-word string for command
+     * the rests are command arguments
+     */
+    private static final int RAW_INPUT_PARTS = 2;
 
     /**
      * Offset required to convert between 1-indexing and 0-indexing.COMMAND_
@@ -260,7 +266,7 @@ public class AddressBook {
             setupGivenFileForStorage(args[0]);
         }
 
-        if(args.length == 0) {
+        if (args.length == 0) {
             setupDefaultFileForStorage();
         }
     }
@@ -385,11 +391,11 @@ public class AddressBook {
     /**
      * Splits raw user input into command word and command arguments string
      *
-     * @return  size 2 array; first element is the command type and second element is the arguments string
+     * @return  size RAW_INPUT_PARTS array; first element is the command type and second element is the arguments string
      */
     private static String[] splitCommandWordAndArgs(String rawUserInput) {
-        final String[] split =  rawUserInput.trim().split("\\s+", 2);
-        return split.length == 2 ? split : new String[] { split[0] , "" }; // else case: no parameters
+        final String[] split =  rawUserInput.trim().split("\\s+", RAW_INPUT_PARTS);
+        return split.length == RAW_INPUT_PARTS ? split : new String[] { split[0] , "" }; // else case: no parameters
     }
 
     /**
