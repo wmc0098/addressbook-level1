@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Optional;
@@ -116,6 +117,10 @@ public class AddressBook {
     private static final String COMMAND_LIST_DESC = "Displays all persons as a list with index numbers.";
     private static final String COMMAND_LIST_EXAMPLE = COMMAND_LIST_WORD;
 
+    private static final String COMMAND_SORT_WORD = "sort";
+    private static final String COMMAND_SORT_DESC = "Sort all persons inside the address book in alphabetical order";
+    private static final String COMMAND_SORT_EXAMPLE = COMMAND_SORT_WORD;
+    
     private static final String COMMAND_DELETE_WORD = "delete";
     private static final String COMMAND_DELETE_DESC = "Deletes a person identified by the index number used in "
                                                     + "the last find/list call.";
@@ -377,6 +382,8 @@ public class AddressBook {
             return executeListAllPersonsInAddressBook();
         case COMMAND_DELETE_WORD:
             return executeDeletePerson(commandArgs);
+        case COMMAND_SORT_WORD:
+        	return executeSortAllPersonsInAddressBook();
         case COMMAND_CLEAR_WORD:
             return executeClearAddressBook();
         case COMMAND_HELP_WORD:
@@ -558,6 +565,38 @@ public class AddressBook {
         return String.format(MESSAGE_DELETE_PERSON_SUCCESS, getMessageForFormattedPersonData(deletedPerson));
     }
 
+    /**
+     * Sort and display list of all persons in alphabetical order
+     * 
+     * @return display feedback message for the operation's result
+     */
+    private static String executeSortAllPersonsInAddressBook() {
+    	ArrayList<HashMap<PersonProperty,String>> personsToSort = getAllPersonsInAddressBook();
+    	ArrayList<HashMap<PersonProperty,String>> toBeDisplayed = sortPersonsInAlphabeticalOrder(personsToSort);
+        showPersonToUser(toBeDisplayed);
+        return getMessageForPersonsDisplayedSummary(toBeDisplayed);
+    }
+    
+    /**
+     * Sort incoming list of persons in alphabetical order by name
+     * 
+     * @param list of persons to be sorted
+     * @return list of sorted persons
+     */
+    private static ArrayList<HashMap<PersonProperty,String>> sortPersonsInAlphabeticalOrder(ArrayList<HashMap<PersonProperty,String>> personsToSort) {
+    	Comparator<HashMap<PersonProperty,String>> compareInAlphabeticalOrder = 
+    	        new Comparator<HashMap<PersonProperty,String>>() {
+    	    public int compare(HashMap<PersonProperty,String> person1, HashMap<PersonProperty,String> person2) {
+    	        String nameOfPerson1 = getNameFromPerson(person1);
+    	        String nameOfPerson2 = getNameFromPerson(person2);
+    	        return nameOfPerson1.compareTo(nameOfPerson2);
+    	    }
+    		
+    	};
+    	Collections.sort(personsToSort, compareInAlphabeticalOrder);
+    	return personsToSort;
+    }
+    
     /**
      * Clears all persons in the address book.
      *
@@ -1078,8 +1117,9 @@ public class AddressBook {
     private static String getUsageInfoForAllCommands() {
         return getUsageInfoForAddCommand() + LINE_SEPARATOR
                 + getUsageInfoForFindCommand() + LINE_SEPARATOR
-                + getUsageInfoForViewCommand() + LINE_SEPARATOR
+                + getUsageInfoForListCommand() + LINE_SEPARATOR
                 + getUsageInfoForDeleteCommand() + LINE_SEPARATOR
+                + getUsageInfoForSortCommand() + LINE_SEPARATOR
                 + getUsageInfoForClearCommand() + LINE_SEPARATOR
                 + getUsageInfoForExitCommand() + LINE_SEPARATOR
                 + getUsageInfoForHelpCommand();
@@ -1106,14 +1146,20 @@ public class AddressBook {
                 + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_DELETE_EXAMPLE) + LINE_SEPARATOR;
     }
 
+    /** Returns the string for showing 'sort' command usage instruction */
+    private static String getUsageInfoForSortCommand() {
+        return String.format(MESSAGE_COMMAND_HELP, COMMAND_SORT_WORD, COMMAND_SORT_DESC) + LINE_SEPARATOR
+                + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_SORT_EXAMPLE) + LINE_SEPARATOR;
+    }
+    
     /** Returns string for showing 'clear' command usage instruction */
     private static String getUsageInfoForClearCommand() {
         return String.format(MESSAGE_COMMAND_HELP, COMMAND_CLEAR_WORD, COMMAND_CLEAR_DESC) + LINE_SEPARATOR
                 + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_CLEAR_EXAMPLE) + LINE_SEPARATOR;
     }
 
-    /** Returns the string for showing 'view' command usage instruction */
-    private static String getUsageInfoForViewCommand() {
+    /** Returns the string for showing 'list' command usage instruction */
+    private static String getUsageInfoForListCommand() {
         return String.format(MESSAGE_COMMAND_HELP, COMMAND_LIST_WORD, COMMAND_LIST_DESC) + LINE_SEPARATOR
                 + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_LIST_EXAMPLE) + LINE_SEPARATOR;
     }
