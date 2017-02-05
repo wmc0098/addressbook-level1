@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /*
  * NOTE : =============================================================
@@ -92,6 +94,9 @@ public class AddressBook {
     private static final String MESSAGE_STORAGE_FILE_CREATED = "Created new empty storage file: %1$s";
     private static final String MESSAGE_WELCOME = "Welcome to your Address Book!";
     private static final String MESSAGE_USING_DEFAULT_FILE = "Using default storage file : " + DEFAULT_STORAGE_FILEPATH;
+    private static final String MESSAGE_EDITED = "Person at index %1$d has been changed from "
+                                              + "[%2$s  Phone Number: %3$s  Email: %4$s] to "
+                                              + "[%5$s  Phone Number: %6$s  Email: %7$s]";
 
     // These are the prefix strings to define the data type of a command parameter
     private static final String PERSON_DATA_PREFIX_PHONE = "p/";
@@ -121,6 +126,13 @@ public class AddressBook {
     private static final String COMMAND_SORT_DESC = "Sort all persons inside the address book in alphabetical order";
     private static final String COMMAND_SORT_EXAMPLE = COMMAND_SORT_WORD;
     
+    private static final String COMMAND_EDIT_WORD = "edit";
+    private static final String COMMAND_EDIT_DESC = "Edit the properties of a specific person(using index).";
+    private static final String COMMAND_EDIT_PARAMETERS = "INDEX "
+                                                      + PERSON_DATA_PREFIX_PHONE + "PHONE_NUMBER "
+                                                      + PERSON_DATA_PREFIX_EMAIL + "EMAIL";
+    private static final String COMMAND_EDIT_EXAMPLE = COMMAND_EDIT_WORD + " 1 John Doe p/98765432 e/johnd@gmail.com";
+    
     private static final String COMMAND_DELETE_WORD = "delete";
     private static final String COMMAND_DELETE_DESC = "Deletes a person identified by the index number used in "
                                                     + "the last find/list call.";
@@ -140,6 +152,8 @@ public class AddressBook {
     private static final String COMMAND_EXIT_EXAMPLE = COMMAND_EXIT_WORD;
 
     private static final String DIVIDER = "===================================================";
+    
+    private static final int NULL_PERSON_INDEX = -1;
 
 
 
@@ -384,12 +398,14 @@ public class AddressBook {
             return executeDeletePerson(commandArgs);
         case COMMAND_SORT_WORD:
         	return executeSortAllPersonsInAddressBook();
+        case COMMAND_EDIT_WORD:
+            return executeEditPerson(commandArgs);
         case COMMAND_CLEAR_WORD:
             return executeClearAddressBook();
         case COMMAND_HELP_WORD:
             return getUsageInfoForAllCommands();
         case COMMAND_EXIT_WORD:
-        	exitProgram();
+            exitProgram();
         default:
             return getMessageForInvalidCommandInput(commandType, getUsageInfoForAllCommands());
         }
@@ -566,19 +582,19 @@ public class AddressBook {
     }
 
     /**
-     * Sort and display list of all persons in alphabetical order
+     * Sorts and displays list of all persons in alphabetical order
      * 
-     * @return display feedback message for the operation's result
+     * @return feedback message for the operation's result
      */
     private static String executeSortAllPersonsInAddressBook() {
-    	ArrayList<HashMap<PersonProperty,String>> personsToSort = getAllPersonsInAddressBook();
-    	ArrayList<HashMap<PersonProperty,String>> toBeDisplayed = sortPersonsInAlphabeticalOrder(personsToSort);
+        ArrayList<HashMap<PersonProperty,String>> personsToSort = getAllPersonsInAddressBook();
+        ArrayList<HashMap<PersonProperty,String>> toBeDisplayed = sortPersonsInAlphabeticalOrder(personsToSort);
         showPersonToUser(toBeDisplayed);
         return getMessageForPersonsDisplayedSummary(toBeDisplayed);
     }
     
     /**
-     * Sort incoming list of persons in alphabetical order by name
+     * Sorts incoming list of persons in alphabetical order by name
      * 
      * @param list of persons to be sorted
      * @return list of sorted persons
@@ -595,6 +611,61 @@ public class AddressBook {
     	};
     	Collections.sort(personsToSort, compareInAlphabeticalOrder);
     	return personsToSort;
+    }
+    
+    /**
+     * Edits properties of a specific person using his index
+     * 
+     * @param raw arguments following format "index name phone email"
+     * @return a string showing old and new personal infomation
+     */
+    private static String executeEditPerson(String commandArgs) {
+        final int targetVisibleIndex = extractTargetIndexFromEditPersonArgs(commandArgs);
+        if (!isDisplayIndexValidForLastPersonListingView(targetVisibleIndex)) {
+            return MESSAGE_INVALID_PERSON_DISPLAYED_INDEX;
+        }
+        String personDetails = getPersonDetailfromString(commandArgs);
+        
+        // try decoding a person from the raw args
+        final Optional<HashMap<PersonProperty,String>> decodeResult = decodePersonFromString(personDetails);
+
+        // checks if args are valid (decode result will not be present if the person is invalid)
+        if (!decodeResult.isPresent()) {
+            return getMessageForInvalidCommandInput(COMMAND_EDIT_WORD, getUsageInfoForEditCommand());
+        }
+
+        // edit the person as specified
+        final HashMap<PersonProperty,String> personNew = decodeResult.get();
+        final HashMap<PersonProperty,String> personOld = replacePersonInAddressBook(targetVisibleIndex - DISPLAYED_INDEX_OFFSET, personNew);
+        return getMessageForSuccessfulEditPerson(targetVisibleIndex, personOld, personNew);
+    }
+    
+    /** Gets first word which is a integer in the string */
+    private static int extractTargetIndexFromEditPersonArgs(String rawArgs) {
+        Pattern numberAtBeginning = Pattern.compile("^\\d+");
+        Matcher m = numberAtBeginning.matcher(rawArgs);
+        if (m.find()) {
+            return Integer.parseInt(m.group());
+        }
+        return NULL_PERSON_INDEX; //unlikely to happen
+    }
+    
+    /**
+     * removes index(first word) from string
+     * (not finalized, magic numbers are yet to be replaced)
+     */
+    private static String getPersonDetailfromString(String rawArgs) {
+        String stringWithoutFirstWord = rawArgs.split(" ", 2)[1];
+        return stringWithoutFirstWord;
+    }
+    
+    /**
+     * returns message for edit person command, including original info and newest info
+     */
+    private static String getMessageForSuccessfulEditPerson(int index, HashMap<PersonProperty,String> personOld, HashMap<PersonProperty,String> personNew) {
+        return String.format(MESSAGE_EDITED, index, 
+                getNameFromPerson(personOld), getPhoneFromPerson(personOld), getEmailFromPerson(personOld),
+                getNameFromPerson(personNew), getPhoneFromPerson(personNew), getEmailFromPerson(personNew));
     }
     
     /**
@@ -832,6 +903,17 @@ public class AddressBook {
             savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
         }
         return isDeleted;
+    }
+    
+    /**
+     * Replaces person at a specific index with the new person
+     */
+    private static HashMap<PersonProperty,String> replacePersonInAddressBook(int index, HashMap<PersonProperty,String> persontoReplace) {
+        HashMap<PersonProperty,String> personReplaced = ALL_PERSONS.set(index, persontoReplace);
+        //returnli personReplaced(the overwritten info);
+        //save all_persons to local file
+        savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
+        return personReplaced;
     }
 
     /**
@@ -1152,6 +1234,13 @@ public class AddressBook {
                 + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_SORT_EXAMPLE) + LINE_SEPARATOR;
     }
     
+    /** Returns the string for showing 'edit' command usage instruction */
+    private static String getUsageInfoForEditCommand() {
+        return String.format(MESSAGE_COMMAND_HELP, COMMAND_EDIT_WORD, COMMAND_EDIT_DESC) + LINE_SEPARATOR
+                + String.format(MESSAGE_COMMAND_HELP_PARAMETERS, COMMAND_EDIT_PARAMETERS) + LINE_SEPARATOR
+                + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_EDIT_EXAMPLE) + LINE_SEPARATOR;
+    }
+    
     /** Returns string for showing 'clear' command usage instruction */
     private static String getUsageInfoForClearCommand() {
         return String.format(MESSAGE_COMMAND_HELP, COMMAND_CLEAR_WORD, COMMAND_CLEAR_DESC) + LINE_SEPARATOR
@@ -1187,11 +1276,11 @@ public class AddressBook {
      * Removes prefix(p/, d/, etc) from parameter string
      *
      * @param fullString  original string with prefix
-     * @param sign  the prefix to be removed
+     * @param prefix the prefix to be removed
      * @return  string without the prefix
      */
     private static String removePrefix(String fullString, String prefix) {
-        return fullString.replace(prefix, "");
+        return fullString.replaceFirst(prefix, "");
     }
 
     /**
